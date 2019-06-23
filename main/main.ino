@@ -7,15 +7,15 @@ extern "C" {
 #include "FPS_GT511C3.h"
 #include "SoftwareSerial.h"
 
-FPS_GT511C3 fps(3, 1); // (Arduino SS_RX = pin 4, Arduino SS_TX = pin 5)
-
-const char * ssid = "eduroam";                  // The name of the Wi-Fi network that will be created
-const char * username = "az2lou@uwaterloo.ca";  // The password required to connect to it, leave blank for an open network
+const char * ssid = "eduroam";
+const char * username = "az2lou@uwaterloo.ca";
 const char * password = "";
 unsigned long startTime;
 unsigned long onTime;
-unsigned long refTime;
-unsigned long offRefTime;
+unsigned long refTime = 0;
+unsigned long counter = 0;
+unsigned long curr = 0;
+
 WiFiClient client;
 HTTPClient http;
 
@@ -57,21 +57,18 @@ void setup() {
     delay(2000);
     Serial.println(WiFi.localIP());
   }
-  unsigned long refTime = millis();
-  unsigned long offRefTime = millis();
+
   digitalWrite(0, HIGH);
 }
 
 void loop() {
   if (digitalRead(2) == LOW) {
-    startTime = millis();
-    onTime += (startTime - refTime);
-    refTime = startTime;
+    counter += 1;
   }
   if (digitalRead(5) == HIGH) {
     digitalWrite(4, HIGH);
     Serial.println("Request sent!");
-    http.begin(client, "http://alainlou.api.stdlib.com/enghack@dev/verify/?name=Test&verified=false");
+    http.begin(client, "http://alainlou.api.stdlib.com/enghack@dev/update/?space=E7%20Atrium&traffic=2");
     int httpCode = http.GET();
     Serial.println(httpCode);
     Serial.println(http.getString());
@@ -79,19 +76,33 @@ void loop() {
   } else {
     digitalWrite(4, LOW);
   }
-
   if (WiFi.status() == WL_CONNECTED) {
     digitalWrite(0, HIGH);
   } else {
     digitalWrite(0, LOW);
   }
-  if (offRefTime > 8000) {
-    if (onTime / offRefTime >= 0.75) {
-      Serial.println("Busy mode detected");
-    }
-    else {
+  if (curr > 400000) {     
+    if (counter >= 250000) {
+      http.begin(client, "http://alainlou.api.stdlib.com/enghack@dev/update/?space=E7%20Atrium&traffic=Pretty%20busy");
+      int httpCode = http.GET();
+      Serial.println(httpCode);
+      Serial.println("Pretty busy");
+      delay(250);
+    } else if (counter >= 100000) {
+      http.begin(client, "http://alainlou.api.stdlib.com/enghack@dev/update/?space=E7%20Atrium&traffic=Kind%20of%20busy");
+      int httpCode = http.GET();
+      Serial.println(httpCode);
+      Serial.println("Kind of busy");
+      delay(250);
+    } else {
+      http.begin(client, "http://alainlou.api.stdlib.com/enghack@dev/update/?space=E7%20Atrium&traffic=Not%20busy");
+      int httpCode = http.GET();
+      Serial.println(httpCode);
       Serial.println("Not Busy");
+      delay(250);
     }
-    offRefTime = millis();
+    counter = 0;
+    curr = 0;
   }
+  ++curr;
 }
