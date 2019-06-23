@@ -12,6 +12,8 @@ FPS_GT511C3 fps(3, 1); // (Arduino SS_RX = pin 4, Arduino SS_TX = pin 5)
 const char * ssid = "eduroam";                  // The name of the Wi-Fi network that will be created
 const char * username = "az2lou@uwaterloo.ca";  // The password required to connect to it, leave blank for an open network
 const char * password = "";
+unsigned long start;
+unsigned long onTime;
 WiFiClient client;
 HTTPClient http;
 
@@ -53,19 +55,30 @@ void setup() {
     delay(2000);
     Serial.println(WiFi.localIP());
   }
-  
+  unsigned long refTime = millis();
+  unsigned long offRefTime = millis();
   digitalWrite(0, HIGH);
 }
 
 void loop() {
+  if (digitalRead(2) == LOW) {
+    start = millis();
+    onTime += (start-refTime);
+    refTime = start;
+  }
   if(digitalRead(5) == HIGH) {
     digitalWrite(4, HIGH);
     Serial.println("Request sent!");
-    http.begin(client, "http://alainlou.api.stdlib.com/enghack@dev/verify/?name=Test&verified=false");
-    int httpCode = http.GET();
-    Serial.println(httpCode);
-    Serial.println(http.getString());  
-    delay(250);
+    try {
+      http.begin(client, "http://alainlou.api.stdlib.com/enghack@dev/verify/?name=Test&verified=false");
+      int httpCode = http.GET();
+      Serial.println(httpCode);
+      Serial.println(http.getString());  
+      delay(250);
+    }
+    catch {
+      Serial.println("Failed, please try again.");
+    }
   } else {
     digitalWrite(4, LOW);
   } 
@@ -74,5 +87,14 @@ void loop() {
     digitalWrite(0, HIGH);
   } else {
     digitalWrite(0, LOW);
+  }
+  if (offRefTime>80000) {
+    if (onTime/offRefTime >= 0.75) {
+      Serial.println("Busy mode detected");
+    }
+    else {
+      Serial.println("Not Busy");
+    }
+    offRefTime = millis();
   }
 }
